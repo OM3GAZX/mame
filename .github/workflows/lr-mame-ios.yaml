@@ -16,15 +16,32 @@ jobs:
           sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
 
-     - name: Compile dylib for iOS
+     - name: Install Dependencies
        run: |
-          mkdir -p build/device
-          clang -dynamiclib -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
-            -arch arm64 \
-            -miphoneos-version-min=15.0 \
-            src/your_code.c -o build/device/libyourlibrary.dylib
+          brew install coreutils
+          # MAME requires Python for build scripts (GENie)
+          echo "PYTHON_EXECUTABLE=python3" >> $GITHUB_ENV 
+
+     - name: Compile MAME Libretro Core (iOS arm64)
+       run: |
+          # Get iOS SDK path dynamically
+          IOS_SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          
+          # Run the Libretro Makefile with explicit iOS overrides
+          # Using SUBTARGET=arcade keeps compilation faster and prevents GitHub runner timeouts
+          make -f Makefile.libretro -j$(sysctl -n hw.ncpu) \
+            platform=ios-arm64 \
+            IOS_SDK_PATH="$IOS_SDK_PATH"
+
+     - name: Locate and Rename Artifact
+       run: |
+          mkdir -p output/
+          # Libretro cores traditionally output as mame_libretro_ios.dylib or similar
+          find . -name "*.dylib" -exec cp {} output/ \;
+          ls -la output/
+            
      - name: Upload Built Binaries
        uses: actions/artifacts@v4
        with:
-        name: ios-dylibs
-        path: build/
+        name: mame-libretro-ios
+        path: output/
