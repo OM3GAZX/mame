@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-   runs-on: macos-latest
+   runs-on: macos-14
 
    steps:
      - name: Checkout Code
@@ -43,7 +43,7 @@ jobs:
           ls -la output/
             
      - name: Upload Built Binaries
-       uses: actions/artifacts@v4
+       uses: actions/upload-artifact@v4
        with:
         name: mame-libretro-ios
         path: output/
