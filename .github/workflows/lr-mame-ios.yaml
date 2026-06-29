@@ -1,0 +1,30 @@
+name: Build MAME iOS dylib
+
+on:
+ workflow_dispatch:
+
+jobs:
+  build:
+   runs-on: macos-latest
+
+   steps:
+     - name: Checkout Code
+       uses: actions/checkout@v4
+
+     - name: Set up Xcode
+       run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+
+     - name: Compile dylib for iOS
+       run: |
+          mkdir -p build/device
+          clang -dynamiclib -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+            -arch arm64 \
+            -miphoneos-version-min=15.0 \
+            src/your_code.c -o build/device/libyourlibrary.dylib
+     - name: Upload Built Binaries
+       uses: actions/artifacts@v4
+       with:
+        name: ios-dylibs
+        path: build/
