@@ -30,8 +30,8 @@ jobs:
           
           make -f Makefile.libretro -j$(sysctl -n hw.ncpu) \
             platform=ios-arm64 \
-            CFLAGS="-target arm64-apple-ios15.0 -march=armv8-a+crc" \
-            CXXFLAGS="-target arm64-apple-ios15.0 -march=armv8-a+crc" \
+            CFLAGS="-march=armv8-a+crc" \
+            CXXFLAGS="-march=armv8-a+crc" \
             IOS_SDK_PATH="$IOS_SDK_PATH"
 
      - name: Locate and Rename Artifact
