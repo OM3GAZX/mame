@@ -237,7 +237,6 @@ ifeq ($(platform),ios-arm64)
 	PLATFLAGS +=NO_OPENGL=1
 	PLATFLAGS +=USE_QTDEBUG=0
 	PLATFLAGS +=LIBRETRO_IOS=1
-    PLATFLAGS +=NATIVE_DRC=drcbe_armv8
 	#libretro cpu and and libretro os arent needed for the mac anymore builds, Ill need to make sure there not used in other places(in the lua scripts)
 	#leave as is for now but add the the platfrom and remove the conditions in LUA when ready to test. LEts get the builds working.
 	LIBRETRO_CPU = arm64
