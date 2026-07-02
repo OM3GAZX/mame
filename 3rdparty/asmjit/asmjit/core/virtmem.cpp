@@ -61,6 +61,7 @@
   #if defined(__APPLE__)
     #include <pthread.h>
     #include <TargetConditionals.h>
+    #include <libkern/OSCacheControl.h>
     #if TARGET_OS_OSX
       #include <sys/utsname.h>
       #include <libkern/OSCacheControl.h> // sys_icache_invalidate().
