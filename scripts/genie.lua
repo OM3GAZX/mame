@@ -454,9 +454,9 @@ if not _OPTIONS["BIGENDIAN"] then
 	_OPTIONS["BIGENDIAN"] = "0"
 end
 
-if _OPTIONS["NOASM"]=="1" and not _OPTIONS["FORCE_DRC_C_BACKEND"] then
-	_OPTIONS["FORCE_DRC_C_BACKEND"] = "0"
-end
+-- if _OPTIONS["NOASM"]=="1" and not _OPTIONS["FORCE_DRC_C_BACKEND"] then
+	-- _OPTIONS["FORCE_DRC_C_BACKEND"] = "0"
+-- end
 
 if(_OPTIONS["TOOLCHAIN"] == nil) then
 	_OPTIONS['TOOLCHAIN'] = ""
