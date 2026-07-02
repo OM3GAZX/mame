@@ -232,7 +232,7 @@ ifeq ($(platform),ios-arm64)
 	# thats how i got the tagets needed.
 	PLATFLAGS +=OVERRIDE_CC=clang OVERRIDE_CXX=clang++
 	PLATFLAGS +=DONT_USE_NETWORK=1
-	# PLATFLAGS +=NOASM=1
+	PLATFLAGS +=NOASM=1
 	PLATFLAGS +=NO_USE_MIDI=1
 	PLATFLAGS +=NO_OPENGL=1
 	PLATFLAGS +=USE_QTDEBUG=0
