@@ -5,11 +5,13 @@ on:
 
 jobs:
   build:
-   runs-on: macos-latest
+   runs-on: macos-14
 
    steps:
      - name: Checkout Code
        uses: actions/checkout@v4
+       with:
+         submodules: 'recursive'
 
      - name: Set up Xcode
        run: |
@@ -24,13 +26,12 @@ jobs:
 
      - name: Compile MAME Libretro Core (iOS arm64)
        run: |
-          # Get iOS SDK path dynamically
           IOS_SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
           
-          # Run the Libretro Makefile with explicit iOS overrides
-          # Using SUBTARGET=arcade keeps compilation faster and prevents GitHub runner timeouts
           make -f Makefile.libretro -j$(sysctl -n hw.ncpu) \
             platform=ios-arm64 \
+            CFLAGS="-march=armv8-a+crc \
+            CXXFLAGS="-march=armv8-a+crc \
             IOS_SDK_PATH="$IOS_SDK_PATH"
 
      - name: Locate and Rename Artifact
@@ -41,7 +42,7 @@ jobs:
           ls -la output/
             
      - name: Upload Built Binaries
-       uses: actions/artifacts@v4
+       uses: actions/upload-artifact@v4
        with:
         name: mame-libretro-ios
         path: output/
