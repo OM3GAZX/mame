@@ -836,6 +836,23 @@ void dspp_device::execute_run()
 
 	do
 	{
+		// sleeping or disabled with no DMA to service: nothing changes until the next frame event, so skip ahead
+		if (!m_frame_sync && (m_core->m_flag_sleep || !(m_core->m_dspx_control & DSPX_CONTROL_GWILLING)) && !fifo_dma_pending())
+		{
+			int32_t skip = m_core->m_icount;
+			if (!m_core->m_flag_audlock)
+				skip = std::min<int32_t>(skip, std::max<int32_t>(m_frame_counter, 1));
+			if (skip > 1)
+			{
+				m_core->m_tclock -= skip;
+				m_core->m_icount -= skip;
+				m_frame_counter -= skip;
+				if (!m_core->m_flag_audlock && m_frame_counter <= 0)
+					new_frame();
+				continue;
+			}
+		}
+
 		const int32_t start = m_core->m_icount;
 		update_ticks();
 		update_fifo_dma();
@@ -1759,6 +1776,32 @@ void dspp_device::update_fifo_dma()
 
 		mask &= (1 << channel) - 1;
 	}
+}
+
+
+// same channel selection as update_fifo_dma, without servicing anything
+bool dspp_device::fifo_dma_pending() const
+{
+	uint32_t mask = m_dspx_channel_enable & ~m_dspx_channel_complete;
+
+	while (mask != 0)
+	{
+		const uint32_t channel = std::bit_width(mask) - 1;
+		const fifo_dma &dma = m_fifo_dma[channel];
+
+		if (m_dspx_channel_direction & (1 << channel))
+		{
+			if (dma.m_depth >= 4)
+				return true;
+		}
+		else if (dma.m_depth <= 4)
+		{
+			return true;
+		}
+
+		mask &= (1 << channel) - 1;
+	}
+	return false;
 }
 
 

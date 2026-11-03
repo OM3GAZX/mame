@@ -1270,21 +1270,31 @@ TIMER_CALLBACK_MEMBER(madam_device::cel_tick_cb)
 				// - plumber choice screen
 				// - conandl FMV playbacks
 				// - retfire main menu
+				const get_pixel_func get_pixel = get_pixel_table[actual_src_mode];
+				const pixc_mix_func pixc_mix[2] = { pixc_mix_table[pixc_mode_setting[0]], pixc_mix_table[pixc_mode_setting[1]] };
+				const vh_interpolate_func vh_interpolate = vh_interpolate_table[m_cel.plutpos];
+				const int xclip = int(m_regis.xclip);
+				const int yclip = int(m_regis.yclip);
+				const int row_count = int(tlhpcnt) - int(skipx);
+
 				for (int y = 0; y < vcnt << lrform; y++)
 				{
-					for (int x = 0; x < tlhpcnt - skipx; x++)
+					const double row_ypos = m_cel.ypos + y * m_cel.vdy;
+					const double row_xoff = y * m_cel.vdx;
+
+					for (int x = 0; x < row_count; x++)
 					{
 						// According to "The Projector" section this floors down,
 						// discarding the fractional part
-						int ypos = (s32)(m_cel.ypos + y * m_cel.vdy + x * actual_hdy);
-						if (!check_y_clip_normal(ypos))
+						int ypos = (s32)(row_ypos + x * actual_hdy);
+						if (ypos < 0 || ypos > yclip)
 							continue;
 
-						int xpos = (s32)(m_cel.xpos + x * actual_hdx + y * m_cel.vdx);
-						if (!check_x_clip_normal(xpos))
+						int xpos = (s32)(m_cel.xpos + x * actual_hdx + row_xoff);
+						if (xpos < 0 || xpos > xclip)
 							continue;
 
-						u32 src_data = (this->*get_pixel_table[actual_src_mode])(x + skipx, y, woffset);
+						u32 src_data = (this->*get_pixel)(x + skipx, y, woffset);
 
 						// opaque check, don't draw if resulting pen is pure black or
 						// if packed CEL discarded it.
@@ -1298,9 +1308,9 @@ TIMER_CALLBACK_MEMBER(madam_device::cel_tick_cb)
 						const bool p_mode = BIT(src_data, 15);
 						const u8 pixc_mode = pixc_mode_setting[p_mode];
 
-						u16 res_data = (this->*pixc_mix_table[pixc_mode])(xpos, ypos, src_data, p_mode, op_mode);
+						u16 res_data = (this->*pixc_mix[p_mode])(xpos, ypos, src_data, p_mode, op_mode);
 						// NOTE: x/y may be the CEL origin not the fb destination ...
-						res_data = (this->*vh_interpolate_table[m_cel.plutpos])(xpos, ypos, src_data, res_data);
+						res_data = (this->*vh_interpolate)(xpos, ypos, src_data, res_data);
 
 						set_fb_pixel(xpos, ypos, res_data);
 
@@ -1360,12 +1370,12 @@ TIMER_CALLBACK_MEMBER(madam_device::cel_tick_cb)
 // Line Super Clipping, CEL Super Clipping and perhaps ACW/ACCW/TWD for Projector
 bool madam_device::check_y_clip_normal(int ypos)
 {
-	return ypos == std::clamp<unsigned>(ypos, 0, m_regis.yclip);
+	return (ypos >= 0) && (ypos <= int(m_regis.yclip));
 }
 
 bool madam_device::check_x_clip_normal(int xpos)
 {
-	return xpos == std::clamp<unsigned>(xpos, 0, m_regis.xclip);
+	return (xpos >= 0) && (xpos <= int(m_regis.xclip));
 }
 
 u16 madam_device::get_fb_pixel(int xpos, int ypos)
@@ -1389,11 +1399,8 @@ void madam_device::set_fb_pixel(int xpos, int ypos, u16 pix_data)
 	dst_address += ((ypos & ~1) * fb_pitch) << 2;
 	dst_address += (xpos << 2);
 
-	u32 dst_data = m_dma32_read_cb(dst_address);
-	u8 dst_shift = (~ypos & 1) * 16;
-	dst_data &= dst_shift ? 0xffff : 0xffff0000;
-
-	m_dma32_write_cb(dst_address, (pix_data << dst_shift) | dst_data);
+	const u8 dst_shift = (~ypos & 1) * 16;
+	m_dma32_write_cb(dst_address, pix_data << dst_shift, 0xffffU << dst_shift);
 }
 
 /******************
@@ -1410,7 +1417,26 @@ std::tuple<u8, u8, u8> madam_device::convert_cel_primary_source(u32 cel_data, bo
 	s16 b = (cel_data & 0x001f) >> 0;
 
 	u8 pmv_r, pmv_g, pmv_b, pdv;
-	std::tie(pmv_r, pmv_g, pmv_b, pdv) = (this->*pixc_ms_table[ms_mode])(cel_data, p_mode);
+	switch (ms_mode)
+	{
+		case 0:
+			pmv_r = pmv_g = pmv_b = m_cel.pixc_mf[p_mode];
+			pdv = m_cel.pixc_df[p_mode];
+			break;
+		case 1:
+			pmv_r = ((cel_data >> (CEL_AMV_SHIFT + 6)) & 7) + 1;
+			pmv_g = ((cel_data >> (CEL_AMV_SHIFT + 3)) & 7) + 1;
+			pmv_b = ((cel_data >> (CEL_AMV_SHIFT + 0)) & 7) + 1;
+			pdv = m_cel.pixc_df[p_mode];
+			break;
+		case 2:
+			pmv_r = pmv_g = pmv_b = (cel_data & 0x7) + 1;
+			pdv = (cel_data >> 10) & 3;
+			break;
+		default:
+			std::tie(pmv_r, pmv_g, pmv_b, pdv) = pixc_ms_3(cel_data, p_mode);
+			break;
+	}
 	const u8 sdv = m_cel.pixc_2d[p_mode];
 
 	// NOTE: the primary source also needs to be scaled down by the secondary divider
@@ -1439,7 +1465,26 @@ std::tuple<u8, u8, u8> madam_device::convert_fb_primary_source(u16 fb_data, u32 
 	const u8 ms_mode = m_cel.pixc_ms[p_mode];
 
 	u8 pmv_r, pmv_g, pmv_b, pdv;
-	std::tie(pmv_r, pmv_g, pmv_b, pdv) = (this->*pixc_ms_table[ms_mode])(cel_data, p_mode);
+	switch (ms_mode)
+	{
+		case 0:
+			pmv_r = pmv_g = pmv_b = m_cel.pixc_mf[p_mode];
+			pdv = m_cel.pixc_df[p_mode];
+			break;
+		case 1:
+			pmv_r = ((cel_data >> (CEL_AMV_SHIFT + 6)) & 7) + 1;
+			pmv_g = ((cel_data >> (CEL_AMV_SHIFT + 3)) & 7) + 1;
+			pmv_b = ((cel_data >> (CEL_AMV_SHIFT + 0)) & 7) + 1;
+			pdv = m_cel.pixc_df[p_mode];
+			break;
+		case 2:
+			pmv_r = pmv_g = pmv_b = (cel_data & 0x7) + 1;
+			pdv = (cel_data >> 10) & 3;
+			break;
+		default:
+			std::tie(pmv_r, pmv_g, pmv_b, pdv) = pixc_ms_3(cel_data, p_mode);
+			break;
+	}
 	const u8 sdv = m_cel.pixc_2d[p_mode];
 
 	s16 r = (fb_data & 0x7c00) >> 10;

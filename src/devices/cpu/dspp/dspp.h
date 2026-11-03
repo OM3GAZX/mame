@@ -77,6 +77,7 @@ public:
 	void semaphore_ack_w(uint16_t data);
 
 	void update_fifo_dma();
+	bool fifo_dma_pending() const;
 	void set_rmap_from_args() { set_rmap(m_core->m_arg0, m_core->m_arg1); }
 	void print_sums() { printf("%04x: %04x\n", (uint16_t)m_core->m_arg0, (uint16_t)m_core->m_arg1); }
 	void print_branches() { printf("Branch: %d %d %d %d %d\n", m_core->m_arg0 ? 1 : 0, m_core->m_arg1 ? 1 : 0, m_core->m_arg2 ? 1 : 0, m_core->m_arg3 ? 1 : 0, m_core->m_arg4 ? 1 : 0); }

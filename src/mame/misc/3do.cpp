@@ -446,9 +446,9 @@ void _3do_state::green_config(machine_config &config)
 		u32 ret = space.read_dword(offset, 0xffff'ffff);
 		return ret;
 	});
-	m_madam->dma32_write_cb().set([this] (offs_t offset, u32 data) {
+	m_madam->dma32_write_cb().set([this] (offs_t offset, u32 data, u32 mem_mask) {
 		address_space &space = m_maincpu->space();
-		space.write_dword(offset, data, 0xffff'ffff);
+		space.write_dword(offset, data, mem_mask);
 	});
 	// TODO: disregard enable and cmd, those needs to be from xbus
 	m_madam->dma_exp_read_cb().set([this] () {
